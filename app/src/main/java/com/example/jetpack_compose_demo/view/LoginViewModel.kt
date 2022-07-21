@@ -3,52 +3,56 @@ package com.example.jetpack_compose_demo.view
 import android.util.Log
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.runBlocking
+import androidx.lifecycle.viewModelScope
+import com.example.jetpack_compose_demo.repo.MyRepository
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 
-class LoginViewModel: ViewModel() {
+class LoginViewModel : ViewModel() {
+    private var _eventFlow = MutableSharedFlow<UIState>()
+    val eventFlow = _eventFlow.asSharedFlow()
+    var username = mutableStateOf("")
+    var pasword = mutableStateOf("")
+    var textStatus = mutableStateOf("")
+    val repo = MyRepository()
 
-    var stateLogin = mutableStateOf(LoginState.NONE)
-        private set
+    fun getListImage(): List<String> {
+        return repo.getList()
+    }
 
-    suspend fun login(userName: String, passWord: String) {
-        coroutineScope {
-            Log.e("VIEWMODEL", stateLogin.value.toString())
-            stateLogin.value = LoginState.START
-            Log.e("VIEWMODEL", stateLogin.value.toString())
-            stateLogin.value = LoginState.LOADING
-            Log.e("VIEWMODEL", stateLogin.value.toString())
-            delay(1500L)
-            if(userName == "" && passWord == ""){
-                stateLogin.value = LoginState.SUCCESS
-                Log.e("VIEWMODEL", stateLogin.value.toString())
-            }else {
-                stateLogin.value = LoginState.FAILURE
-                Log.e("VIEWMODEL", stateLogin.value.toString())
+    fun onEvent(event: UIEvent) {
+        when (event) {
+            is UIEvent.Login -> {
+                Log.d(javaClass.name, "${username.value} - ${pasword.value}")
+                  viewModelScope.launch {
+                      if(username.value == "" && pasword.value == "") {
+                          _eventFlow.emit(UIState.NavigateToHome)
+                          textStatus.value = "Login success"
+                      } else {
+                          _eventFlow.emit(UIState.LoginFailure)
+                          textStatus.value = "Login failure!"
+                      }
+                  }
+            }
+            is UIEvent.Register -> {
+                viewModelScope.launch {
+                    _eventFlow.emit(UIState.Register)
+                }
             }
         }
     }
 
-
-    fun loginfLow(userName: String, passWord: String) = flow{
-        emit(LoginState.START)
-        emit(LoginState.LOADING)
-        if(userName == "" && passWord == ""){
-            emit(LoginState.SUCCESS)
-        }else {
-            emit(LoginState.FAILURE)
-        }
-        awaitCancellation()
+    sealed class UIEvent {
+        object Login : UIEvent()
+        object Register : UIEvent()
     }
 
-    fun getUser(){
-        runBlocking {
-
-        }
-
+    sealed class UIState {
+        object NavigateToHome : UIState()
+        object ShowLoading : UIState()
+        object LoginFailure: UIState()
+        object Register: UIState()
     }
+
 }
